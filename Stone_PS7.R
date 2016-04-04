@@ -72,6 +72,16 @@ sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){
 
 
 # Measuring gains in speed when running in parallel
+library(microbenchmark)
+# Three dimensions, 1 and 4 cores
+microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel.cores=1), 
+               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel.cores=4),
+               times=100)
+# Four dimensions, 1 and 8 cores
+microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel.cores=1), 
+               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel.cores=8),
+               times=10)
+
 
 
 
