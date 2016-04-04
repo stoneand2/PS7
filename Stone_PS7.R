@@ -82,6 +82,53 @@ microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimen
                sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel.cores=8),
                times=10)
 
+# Integrating using adaptIntegrate, comparing speed/accuracy with sparse grid algorithm
+library(cubature);library(mvtnorm)
+
+# Function to integrate over (just x-dimensional multivariate normal distribution)
+myNorm <- function(x){
+  dmvnorm(x, mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))
+}
+# Setting number of dimentions
+dimensions <- 2
+
+### SPEED ###
+
+# Actual answer (uses the actual distribution function)
+ans <- as.numeric(pmvnorm(upper=rep(.5, dimensions), mean=rep(0, dimensions), sigma=diag(rep(1, dimensions))))
+# Integrate from -100 (where density is practically zero) to 0.5
+# Both functions are pretty accurate here in two dimensions, but adaptIntegrate is better
+# Error is -7.7156e-08
+adaptIntegrate(myNorm, lowerLimit=rep(-100, dimensions), upperLimit=rep(.5, dimensions))$integral - ans
+# Error is -0.012055
+sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1) - ans
+
+### ACCURACy ###
+
+# Speed comparison: adaptiveIntegrate is slower in this case
+microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-100, dimensions), upperLimit=rep(.5, dimensions)), 
+               sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1),
+               times=100)
+# With many cores specified for our function, the differene is about the same
+microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-100, dimensions), upperLimit=rep(.5, dimensions)), 
+               sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=8),
+               times=100)
+
+
+# Three dimensions, lower=c(1,1,2), upper=c(6,6,6)
+# With three dimensions, the algorithms give quite different answers
+adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral
+sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=1)
+
+# With higher dimensions, adaptiveIntegrate gets a little slower in comparison to our function
+microbenchmark(adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral, 
+               sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=8),
+               times=10)
+
+
+
+
+
 
 
 
