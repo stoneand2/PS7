@@ -33,9 +33,12 @@ mixDist <- function(x){
 }
 
 
-# Allowing greater number of dimensions
-sg.int<-function(g, ..., lower, upper, dimensions){ 
+# Function allowing greater number of dimensions
+sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){ 
   require("SparseGrid")
+  # Allowing for parallel processing
+  require("doMC")
+  registerDoMC(cores=parallel.cores)
   
   # Rounds down to integers
   lower <- floor(lower)
@@ -66,3 +69,10 @@ sg.int<-function(g, ..., lower, upper, dimensions){
   val.sp <- gx.sp %*%weights
   val.sp
 }
+
+
+
+
+
+
+
