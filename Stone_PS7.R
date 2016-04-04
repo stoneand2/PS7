@@ -36,9 +36,9 @@ mixDist <- function(x){
 # Function allowing greater number of dimensions
 sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){ 
   require("SparseGrid")
-  # Allowing for parallel processing
-  require("doMC")
-  registerDoMC(cores=parallel.cores)
+  # Allowing for parallel processing. doParallel works for Linux, Mac OSX, Windows users (unlike doMC) 
+  require("doParallel")
+  registerDoParallel(cores=parallel.cores)
   
   # Rounds down to integers
   lower <- floor(lower)
@@ -71,7 +71,7 @@ sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){
 }
 
 
-
+# Measuring gains in speed when running in parallel
 
 
 
