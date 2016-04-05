@@ -6,7 +6,7 @@
 setwd("~/github/PS7")
 
 # Libraries to be utilized
-library(cubature); library(mvtnorm); library(SparseGrid); library(doParallel)
+library(cubature); library(mvtnorm); library(SparseGrid); library(doParallel); library(testthat)
 
 # The sparse grid integration function, adapted to allow for a greater number of dimensions
 sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){ 
@@ -110,6 +110,15 @@ sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=1)
 microbenchmark(adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral, 
                sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=8),
                times=10)
+
+#### UNIT TESTING ####
+# Comparing output of function to correct answer. Tolearance within 0.05
+test_that('Function within 0.5 of true answer',{
+          expect_equal(as.numeric(pmvnorm(upper=rep(.5, dimensions), mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))),
+            sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1),
+            tolerance=0.5)
+}
+)
 
 
 # Function for Monte Carlo integration
