@@ -112,13 +112,20 @@ microbenchmark(adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6),
                times=10)
 
 #### UNIT TESTING ####
-# Comparing output of function to correct answer. Tolearance within 0.05
-test_that('Function within 0.5 of true answer',{
+# Function to compare output of function to correct answer
+# Integrating a multivariate normal distribution (so we can know the true answer)
+# Tolearance can be set by user
+dimensions <- 2
+within_tolerance <- function(tolerance){
+test_that(paste('Function within',as.character(tolerance),'of true answer'),{
           expect_equal(as.numeric(pmvnorm(upper=rep(.5, dimensions), mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))),
-            sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1),
-            tolerance=0.5)
+            as.numeric(sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1)),
+            tolerance=tolerance)
 }
 )
+}
+
+test_that("")
 
 
 # Function for Monte Carlo integration
