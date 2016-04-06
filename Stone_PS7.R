@@ -8,12 +8,20 @@ setwd("~/github/PS7")
 # Libraries to be utilized
 library(cubature); library(mvtnorm); library(SparseGrid); library(doParallel); library(testthat)
 
+##################################
+####### The actual function ######
+##################################
+
 # The sparse grid integration function, adapted to allow for a greater number of dimensions
 sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){ 
   require("SparseGrid")
   # Allowing for parallel processing. doParallel works for Linux, Mac OSX, Windows users (unlike doMC) 
   require("doParallel")
+  # Registering number of cores to use for parallel processing (default of 1)
   registerDoParallel(cores=parallel.cores)
+  
+  # Check to make sure lower, upper are numeric
+  if (class(lower) != "numeric" | class(upper) != "numeric") stop("Lower, upper need to be numeric")
   
   # Rounds values passed into lower vector down to nearest integer
   lower <- floor(lower)
@@ -36,22 +44,27 @@ sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){
   sp.grid <- createIntegrationGrid('KPU', dimension=dimensions, k=5)
   nodes <- gridss[1,] + sp.grid$nodes
   weights <- sp.grid$weights
-  
+  # Adding more nodes, weights for each dimension greater than 1
   for (i in 2:nrow(gridss)){
     nodes <- rbind(nodes, gridss[i,] + sp.grid$nodes)  
     weights<-c(weights,sp.grid$weights)
   }
+  # Integrating (finding values of the function across values of nodes)
   gx.sp <- apply(nodes, 1, g,...)
+  # Weighted sum (using matrix multiplication) to find the integral value
   val.sp <- gx.sp %*%weights
+  # Returning the value
   val.sp
 }
 
-# Function to integrate over
+# A function to integrate over
 mixDist <- function(x){
   (.8*dnorm(x, mean=1, sd=1)+.2*dnorm(x, mean=-1, sd=.4))
-  }
+}
 
-# Measuring gains in speed when running in parallel
+###############################################################
+###### Measuring gains in speed when running in parallel ###### 
+###############################################################
 library(microbenchmark)
 # Three dimensions, 1 and 4 cores. Not much of a difference, with 4 cores gives slightly lower median
 microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel.cores=1), 
@@ -64,8 +77,9 @@ microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimen
 
 
 
-# Integrating using adaptIntegrate, comparing speed/accuracy with sparse grid algorithm
-
+#########################################################################################
+# Integrating using adaptIntegrate, comparing speed/accuracy with sparse grid algorithm #
+#########################################################################################
 # Function to integrate over (just x-dimensional multivariate normal distribution)
 myNorm <- function(x){
   dmvnorm(x, mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))
@@ -111,7 +125,11 @@ microbenchmark(adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6),
                sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=8),
                times=10)
 
+
+######################
 #### UNIT TESTING ####
+######################
+
 # Function to compare output of function to correct answer
 # Integrating a multivariate normal distribution (so we can know the true answer)
 # Tolearance can be set by user
@@ -125,8 +143,19 @@ test_that(paste('Function within',as.character(tolerance),'of true answer'),{
 )
 }
 
-test_that("")
+# Testing to make sure input is in numeric vector form
+numeric_inputs <- function(lower, upper){
+test_that('Inputs of bounds are numeric',{
+  expect_is(lower, "numeric")
+  expect_is(upper, "numeric")
+  })
+}
 
+
+
+################################### 
+##### Monte Carlo integration ##### 
+################################### 
 
 # Function for Monte Carlo integration
 integrateMonteCarlo <- function(func, lower, upper, n, dimensions){
