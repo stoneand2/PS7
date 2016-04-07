@@ -155,6 +155,13 @@ test_that('Inputs of bounds are numeric',{
   })
 }
 
+# Testing to make sure dimensions specified is numeric
+numeric_dimensions <- function(dimensions){
+  test_that('Dimension is numeric',{
+    expect_is(dimensions, "numeric")
+  })
+}
+
 
 
 ################################### 
