@@ -84,7 +84,7 @@ microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimen
 #########################################################################################
 # Integrating using adaptIntegrate, comparing speed/accuracy with sparse grid algorithm #
 #########################################################################################
-# Function to integrate over (just x-dimensional multivariate normal distribution)
+# Function to integrate over (just n-dimensional multivariate normal distribution)
 myNorm <- function(x){
   dmvnorm(x, mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))
 }
@@ -169,18 +169,18 @@ numeric_dimensions <- function(dimensions){
 ################################### 
 
 # Function for Monte Carlo integration
-integrateMonteCarlo <- function(func, lower, upper, n, dimensions){
+integrateMonteCarlo <- function(func, lower, upper, n, dimensions, parallel=F){
   # Creating the distribution of points to integrate under
   random.points <- matrix(runif(n=(n*dimensions), min=lower, max=upper), ncol=dimensions)
   # Evaluating random points at function to get the x values of our random points
-  x.values <- apply(random.points, 1, func)
+  x.values <- unname(aaply(random.points, 1, func, .parallel=parallel))
   # "Integrating" by taking count of number of points under curve (mean), multiplying by length of integral
   # and taking it to the power of how many dimensions we have
   return(mean(x.values)*(upper-lower)^dimensions)
 }
 
 # Example
-integrateMonteCarlo(myNorm, -2, 2, n=100000, dimensions=3)
+integrateMonteCarlo(myNorm, -2, 2, n=100000, dimensions=3, parallel=F)
 
 
 
