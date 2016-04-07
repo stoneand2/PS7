@@ -7,19 +7,22 @@ setwd("~/github/PS7")
 
 # Libraries to be utilized
 library(cubature); library(mvtnorm); library(SparseGrid); library(doParallel); library(testthat)
+library(plyr)
 
 ##################################
 ####### The actual function ######
 ##################################
 
-# The sparse grid integration function, adapted to allow for a greater number of dimensions
-sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){ 
+# Allowing for parallel processing. doParallel works for Linux, Mac OSX, Windows users (unlike doMC)
+# Uses max number of cores on the user's computer (detected with detectCores())
+registerDoParallel(cores=makeCluster(detectCores()))
+
+# The sparse grid integration function, adapted to allow for a greater number of dimensions and 
+# running in parallel (defaults to not running in parallel, if the user wants to run in parallel, he 
+# needs to specify the number of cores above)
+sg.int<-function(g, ..., lower, upper, dimensions, parallel=F){ 
   require("SparseGrid")
-  # Allowing for parallel processing. doParallel works for Linux, Mac OSX, Windows users (unlike doMC) 
-  require("doParallel")
-  # Registering number of cores to use for parallel processing (default of 1)
-  registerDoParallel(cores=parallel.cores)
-  
+
   # Check to make sure lower, upper are numeric
   if (class(lower) != "numeric" | class(upper) != "numeric") stop("Lower, upper need to be numeric")
   
@@ -38,7 +41,7 @@ sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){
     seq(lower[i], upper[i]-1, by=1)
   }
   # Actually making the matrix, expand.grid gives us all permutations, lapply runs function for each i
-  gridss <- as.matrix(expand.grid(lapply(1:dimensions, gridFunction)))
+  gridss <- as.matrix(expand.grid(llply(1:dimensions, gridFunction, .parallel=parallel)))
   
   # Creating the nodes, weights used for integration
   sp.grid <- createIntegrationGrid('KPU', dimension=dimensions, k=5)
@@ -49,8 +52,9 @@ sg.int<-function(g, ..., lower, upper, dimensions, parallel.cores=1){
     nodes <- rbind(nodes, gridss[i,] + sp.grid$nodes)  
     weights<-c(weights,sp.grid$weights)
   }
-  # Integrating (finding values of the function across values of nodes)
-  gx.sp <- apply(nodes, 1, g,...)
+  # Integrating (finding values of the function across values of nodes), allowing for parallel by
+  # switching the function to be aaply
+  gx.sp <- aaply(nodes, 2, g,..., .parallel=parallel)
   # Weighted sum (using matrix multiplication) to find the integral value
   val.sp <- gx.sp %*%weights
   # Returning the value
@@ -66,13 +70,13 @@ mixDist <- function(x){
 ###### Measuring gains in speed when running in parallel ###### 
 ###############################################################
 library(microbenchmark)
-# Three dimensions, 1 and 4 cores. Not much of a difference, with 4 cores gives slightly lower median
-microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel.cores=1), 
-               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel.cores=4),
-               times=100)
-# Four dimensions, 1 and 8 cores. Again, not much of a difference, 4 cores actually a bit slower
-microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel.cores=1), 
-               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel.cores=8),
+# Three dimensions, not running in parallel appears to be faster
+microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel=T), 
+               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel=F),
+               times=10)
+# Four dimensions, again, not running in parallel seems to be faster
+microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel=T), 
+               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel=F),
                times=10)
 
 
