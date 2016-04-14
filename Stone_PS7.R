@@ -102,11 +102,11 @@ sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=
 
 ### SPEED ###
 
-# Speed comparison: adaptiveIntegrate is slower in this case
+# Speed comparison: adaptiveIntegrate is faster in this case
 microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-1, dimensions), upperLimit=rep(.5, dimensions)), 
                sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel=T),
                times=100)
-# With many cores specified for our function, the differene is about the same
+# With parallel, the difference is still large
 microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-1, dimensions), upperLimit=rep(.5, dimensions)), 
                sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel=T),
                times=100)
