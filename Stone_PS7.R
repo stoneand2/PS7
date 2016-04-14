@@ -7,7 +7,7 @@ setwd("~/github/PS7")
 
 # Libraries to be utilized
 library(cubature); library(mvtnorm); library(SparseGrid); library(doParallel); library(testthat)
-library(plyr)
+library(plyr); library(microbenchmark)
 
 ##################################
 ####### The actual function ######
@@ -54,29 +54,33 @@ sg.int<-function(g, ..., lower, upper, dimensions, parallel=F){
   }
   # Integrating (finding values of the function across values of nodes), allowing for parallel by
   # switching the function to be aaply
-  gx.sp <- aaply(nodes, 2, g,..., .parallel=parallel)
+  gx.sp <- aaply(nodes, 1, g,..., .parallel=parallel)
   # Weighted sum (using matrix multiplication) to find the integral value
   val.sp <- gx.sp %*%weights
   # Returning the value
   val.sp
 }
 
-# A function to integrate over
-mixDist <- function(x){
-  (.8*dnorm(x, mean=1, sd=1)+.2*dnorm(x, mean=-1, sd=.4))
+# Function to integrate over (just n-dimensional multivariate normal distribution)
+myNorm <- function(x){
+  dmvnorm(x, mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))
 }
 
 ###############################################################
 ###### Measuring gains in speed when running in parallel ###### 
 ###############################################################
-library(microbenchmark)
+# Setting dimensions to be 2
+dimensions <- 2
+
 # Three dimensions, not running in parallel appears to be faster
-microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel=T), 
-               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=3, parallel=F),
+microbenchmark(sg.int(myNorm, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=2, parallel=T), 
+               sg.int(myNorm, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=2, parallel=F),
                times=10)
+
+dimensions <- 4
 # Four dimensions, again, not running in parallel seems to be faster
-microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel=T), 
-               sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel=F),
+microbenchmark(sg.int(myNorm, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel=T), 
+               sg.int(myNorm, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimensions=4, parallel=F),
                times=10)
 
 
@@ -84,49 +88,40 @@ microbenchmark(sg.int(mixDist, lower=c(1,1,2,3,4,5), upper=c(6,6,6,7,8,9), dimen
 #########################################################################################
 # Integrating using adaptIntegrate, comparing speed/accuracy with sparse grid algorithm #
 #########################################################################################
-# Function to integrate over (just n-dimensional multivariate normal distribution)
-myNorm <- function(x){
-  dmvnorm(x, mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))
-}
-
-# Setting number of dimensions to be 2
-dimensions <- 2
-
 ### ACCURACY ###
 
 # Actual answer (uses the actual distribution function)
+dimensions <- 2
 ans <- as.numeric(pmvnorm(upper=rep(.5, dimensions), mean=rep(0, dimensions), sigma=diag(rep(1, dimensions))))
 # Integrate from -100 (where density is practically zero) to 0.5
 # Both functions are pretty accurate here in two dimensions, but adaptIntegrate is better
 # Error is -7.7156e-08
 adaptIntegrate(myNorm, lowerLimit=rep(-100, dimensions), upperLimit=rep(.5, dimensions))$integral - ans
-# Error is -0.012055
-sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1) - ans
+# Error is -0.012055 (would be better if lower is -100. But that takes a very long time)
+sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel=T) - ans
 
 ### SPEED ###
 
 # Speed comparison: adaptiveIntegrate is slower in this case
-microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-100, dimensions), upperLimit=rep(.5, dimensions)), 
-               sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1),
+microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-1, dimensions), upperLimit=rep(.5, dimensions)), 
+               sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel=T),
                times=100)
 # With many cores specified for our function, the differene is about the same
-microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-100, dimensions), upperLimit=rep(.5, dimensions)), 
-               sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=8),
+microbenchmark(adaptIntegrate(myNorm, lowerLimit=rep(-1, dimensions), upperLimit=rep(.5, dimensions)), 
+               sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel=T),
                times=100)
 
 # Setting number of dimensions to be 3 with this multivariate normal distribution takes a VERY LONG time
-# So, I examine the speed of the two methods using the mixDist function defined above
-# We don't know the true answer, but we can compare the answers we obtain, and the speed with which we 
-# obtain them
 
 # Three dimensions, lower=c(1,1,2), upper=c(6,6,6)
 # With three dimensions, the algorithms give quite different answers
-adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral
-sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=1)
+dimensions <- 3
+adaptIntegrate(myNorm, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral
+sg.int(myNorm, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=1)
 
 # With higher dimensions, adaptiveIntegrate gets a little slower in comparison to our function
-microbenchmark(adaptIntegrate(mixDist, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral, 
-               sg.int(mixDist, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=8),
+microbenchmark(adaptIntegrate(myNorm, lowerLimit=c(1,1,2), upperLimit=c(6,6,6), fDim=3)$integral, 
+               sg.int(myNorm, lower=c(1,1,2), upper=c(6,6,6), dimensions=3, parallel.cores=8),
                times=10)
 
 
@@ -141,11 +136,13 @@ dimensions <- 2
 within_tolerance <- function(tolerance){
 test_that(paste('Function within',as.character(tolerance),'of true answer'),{
           expect_equal(as.numeric(pmvnorm(upper=rep(.5, dimensions), mean=rep(0, dimensions), sigma=diag(rep(1, dimensions)))),
-            as.numeric(sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel.cores=1)),
+            as.numeric(sg.int(myNorm, lower=rep(-1, dimensions), upper=rep(.5, dimensions), dimensions=2, parallel=F)),
             tolerance=tolerance)
 }
 )
 }
+# within_tolerance(2) # Passes
+# within_tolerance(.002) # Fails
 
 # Testing to make sure input is in numeric vector form
 numeric_inputs <- function(lower, upper){
@@ -154,6 +151,8 @@ test_that('Inputs of bounds are numeric',{
   expect_is(upper, "numeric")
   })
 }
+# numeric_inputs(lower=c(-1,-1), upper=c(1,1)) # Passes
+# numeric_inputs(lower="-1", upper="1") # Fails
 
 # Testing to make sure dimensions specified is numeric
 numeric_dimensions <- function(dimensions){
@@ -161,7 +160,8 @@ numeric_dimensions <- function(dimensions){
     expect_is(dimensions, "numeric")
   })
 }
-
+# numeric_dimensions(2) # Passes
+# numeric_dimensions("2") # Fails
 
 
 ################################### 
@@ -180,6 +180,7 @@ integrateMonteCarlo <- function(func, lower, upper, n, dimensions, parallel=F){
 }
 
 # Example
+dimensions <- 3
 integrateMonteCarlo(myNorm, -2, 2, n=100000, dimensions=3, parallel=F)
 
 
